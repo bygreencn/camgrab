@@ -169,8 +169,8 @@ void Analyse_TCPPacket(const u_char *data)
 		if(*RTMPHeader == 0x03 || *(RTMPHeader+7) == 0x14)
 		{
 			RTMPBody = RTMPHeader+12;
-			memcpy(buffer, RTMPBody,170);
-			buffer[170] =0;
+			memcpy(buffer, RTMPBody,146);
+			buffer[146] =0;
 			if(memcmp(buffer, _result_string, sizeof(_result_string)) == 0)
 			{
 				rtmp_address = buffer+23;
@@ -178,7 +178,8 @@ void Analyse_TCPPacket(const u_char *data)
 						&& NULL != strfind((char *)rtmp_address,"?"))
 				{
 					dwTime = GetTickCount();
-					sprintf(command,"rtmpdump.exe -r \"%s\" -v -o %d.flvm\n",rtmp_address,dwTime);
+					memset(command,0,sizeof(command));
+					sprintf(command,"rtmpdump.exe -r \"%s\" -v -o %d.flvm",rtmp_address,dwTime);
 					printf("%s\n",command);
 					WinExec(command,SW_HIDE);
 #ifdef DEBUG
