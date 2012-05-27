@@ -14,7 +14,9 @@ void Analyse_IPPacket(const u_char *data);
 void Analyse_TCPPacket(const u_char *data);
 void packet_handler(u_char* packets,const struct pcap_pkthdr * header,const u_char *pp);
 
-HANDLE hFile;
+#ifdef DEBUG
+HANDLE hLogFile = NULL;
+#endif
 
 void main()
 {
@@ -71,12 +73,28 @@ void main()
 	/* 我们已经不需要设备列表了, 释放它 */
 	pcap_freealldevs(alldevs);
 
-	//hFile=CreateFile("C:\\aaa.txt",GENERIC_WRITE,0, NULL,CREATE_ALWAYS,0,NULL);
+#ifdef DEBUG
+	hLogFile=CreateFile("capture.log",GENERIC_WRITE,
+						FILE_SHARE_READ|FILE_SHARE_WRITE,
+						NULL,
+						CREATE_ALWAYS,
+						0,
+						NULL
+					   );
+	if (hLogFile == INVALID_HANDLE_VALUE)
+	{
+		printf("[Error]: Create Log File.\n");
+		hLogFile = NULL;
+	}
+#endif
 
 	pcap_loop(adhandle, 0, packet_handler, NULL);
 
+#ifdef DEBUG
+	if(NULL != hLogFile)
+		CloseHandle(hLogFile);
+#endif
 
-	//CloseHandle(hFile);
 	return;
 }
 
@@ -139,7 +157,7 @@ void Analyse_TCPPacket(const u_char *data)
 	const u_char _result_string[] = {0x02,0x00,0x07,0x5f,0x72,0x65,0x73,0x75,0x6c,0x74};
 	u_char buffer[256] = {0};
 
-	char command[512] = {0};
+	char command[2048] = {0};
 
 	const u_char *RTMPHeader = NULL;
 	const u_char *RTMPBody = NULL;
@@ -151,8 +169,8 @@ void Analyse_TCPPacket(const u_char *data)
 		if(*RTMPHeader == 0x03 || *(RTMPHeader+7) == 0x14)
 		{
 			RTMPBody = RTMPHeader+12;
-			memcpy(buffer, RTMPBody,146);
-			buffer[146] =0;
+			memcpy(buffer, RTMPBody,170);
+			buffer[170] =0;
 			if(memcmp(buffer, _result_string, sizeof(_result_string)) == 0)
 			{
 				rtmp_address = buffer+23;
@@ -160,9 +178,26 @@ void Analyse_TCPPacket(const u_char *data)
 						&& NULL != strfind((char *)rtmp_address,"?"))
 				{
 					dwTime = GetTickCount();
-					sprintf(command,"rtmpdump.exe -r \"%s\" -v -o %d.flv",rtmp_address,dwTime);
+					sprintf(command,"rtmpdump.exe -r \"%s\" -v -o %d.flvm\n",rtmp_address,dwTime);
 					printf("%s\n",command);
 					WinExec(command,SW_HIDE);
+#ifdef DEBUG
+					if(NULL != hLogFile)
+					{
+						BOOL bErrorFlag = WriteFile(
+											  hLogFile,           // open file handle
+											  command,      // start of data to write
+											  strlen(command),  // number of bytes to write
+											  NULL, // number of bytes that were written
+											  NULL);            // no overlapped structure
+
+						if (FALSE == bErrorFlag)
+						{
+							printf("[ERROR]: Unable to write log file.\n");
+						}
+
+					}
+#endif
 				}
 			}
 		}
